@@ -180,14 +180,10 @@ int System_SpeakerConfiguration = 0;
 unsigned int 		g_nlastMode 	= LM_TUNER;
 sMyBool b_rvcengage = FALSE;
 /* EOL Parameters Default Value */
-int g_AndroidAutoSupport = 1;		/* Default */
 int g_CarPlayAvailability = 1;		/* Default */
 int g_GPSAntennaAvailable = 1;		/* Default */
 int g_RVCSupported = 0;				/* Default */
-int g_SmartLinkSupport = 0;			/* Default */
-int g_SmartRemoteAppSupport = 0;	/* Default */
 int g_VRSupport = 0;				/* Default */
-int g_VehicleAppSupport = 0;		/* Default */
 int g_VoiceAlertFeature = 1;		/* Default */
 
 int BT_ID[] = {0,0,0,0,0,0};
@@ -997,6 +993,7 @@ void *startPackages (void* args)
 					{
 						startPackage (istarthandle, CAN);
 						startPackage(istarthandle, IVN);
+						startPackage(istarthandle, RVC);
 					}
 
 					bStage1 = TRUE;
@@ -1005,7 +1002,8 @@ void *startPackages (void* args)
 				if (b_rvcengage)
 				{
 					if ((PACKAGE_STATE_RUN == mPackageLoadStatus[IVN].currentState)
-							&& (PACKAGE_STATE_RUN == mPackageLoadStatus[CAN].currentState))
+							&& (PACKAGE_STATE_RUN == mPackageLoadStatus[CAN].currentState)
+							&& (PACKAGE_STATE_RUN == mPackageLoadStatus[RVC].currentState))
 					{
 						nStage = 1;
 					}
@@ -1112,6 +1110,7 @@ void *startPackages (void* args)
 					{
 						startPackage (istarthandle, CAN);
 						startPackage (istarthandle, IVN);
+						startPackage(istarthandle, RVC);
 					}
 
 					bStage6 = TRUE;
@@ -1120,7 +1119,8 @@ void *startPackages (void* args)
 				if (!b_rvcengage)
 				{
 					if ((PACKAGE_STATE_RUN == mPackageLoadStatus[CAN].currentState)
-							&&((PACKAGE_STATE_RUN == mPackageLoadStatus[IVN].currentState)))
+							&&((PACKAGE_STATE_RUN == mPackageLoadStatus[IVN].currentState))
+							&& (PACKAGE_STATE_RUN == mPackageLoadStatus[RVC].currentState))
 
 					nStage = 6;
 				}
@@ -1134,6 +1134,8 @@ void *startPackages (void* args)
 			{
 				if (FALSE == bStage7)
 				{
+					startPackage (istarthandle, VOICEALERT);
+					startPackage (istarthandle, GPS);
 					startPackage (istarthandle, ANDROIDAUTO);
 					startPackage (istarthandle,	SPEECH);
 					startPackage (istarthandle,	ENGGMENU);
@@ -1142,7 +1144,9 @@ void *startPackages (void* args)
 					bStage7 = TRUE;
 				}
 
-				if ((PACKAGE_STATE_RUN == mPackageLoadStatus[ANDROIDAUTO].currentState)
+				if ((PACKAGE_STATE_RUN == mPackageLoadStatus[VOICEALERT].currentState)
+						&& (PACKAGE_STATE_RUN == mPackageLoadStatus[GPS].currentState)
+						&& (PACKAGE_STATE_RUN == mPackageLoadStatus[ANDROIDAUTO].currentState)
 						&& (PACKAGE_STATE_RUN == mPackageLoadStatus[SPEECH].currentState)
 						&& (PACKAGE_STATE_RUN == mPackageLoadStatus[ENGGMENU].currentState)
 						&& (PACKAGE_STATE_RUN == mPackageLoadStatus[SMARTLINK].currentState))
@@ -1458,16 +1462,7 @@ int readEOLparameters(void)
 	{
 		if (status == PPS_ATTRIBUTE)
 		{
-			if (!strcmp(info.attr_name, "AndroidAutoFeature"))
-			{
-				/* Save AndroidAutoFeature availability */
-				g_AndroidAutoSupport = atoi(info.value);
-				OutputToConsole("AndroidAutoSupport : %d\n", g_AndroidAutoSupport);
-				OutputToConsole("AndroidAutoFeature is %s\n",
-						(g_AndroidAutoSupport == 1) ? "ENABLE" :"DISABLE");
-			}
-
-			else if (!strcmp(info.attr_name, "CarPlayAvailability"))
+			if (!strcmp(info.attr_name, "CarPlayAvailability"))
 			{
 				/* Save CarPlayAvailability availability */
 				g_CarPlayAvailability = atoi(info.value);
@@ -1475,7 +1470,6 @@ int readEOLparameters(void)
 				OutputToConsole("CarPlayAvailability is %s\n",
 						(g_CarPlayAvailability == 1) ? "ENABLE" :"DISABLE");
 			}
-
 			else if (!strcmp(info.attr_name, "GPSAntennaAvailable"))
 			{
 				/* Save GPSAntennaAvailable availability */
@@ -1492,22 +1486,6 @@ int readEOLparameters(void)
 				OutputToConsole("RVCSupported is %s\n",
 						(g_RVCSupported == 1) ? "AVAILABLE" :"UNAVAILABLE");
 			}
-			else if (!strcmp(info.attr_name, "SmartLinkSupport"))
-			{
-				/* Save SmartLinkSupport availability */
-				g_SmartLinkSupport = atoi(info.value);
-				OutputToConsole("SmartLinkSupport : %d\n", g_SmartLinkSupport);
-				OutputToConsole("SmartLinkSupport is %s\n",
-						(g_SmartLinkSupport == 0) ? "ENABLE" :"DISABLE");
-			}
-			else if (!strcmp(info.attr_name, "SmartRemoteAppSupport"))
-			{
-				/* Save SmartRemoteAppSupport availability */
-				g_SmartRemoteAppSupport = atoi(info.value);
-				OutputToConsole("SmartRemoteAppSupport : %d\n", g_SmartRemoteAppSupport);
-				OutputToConsole("SmartRemoteAppSupport is %s\n",
-						(g_SmartRemoteAppSupport == 0) ? "ENABLE" :"DISABLE");
-			}
 			else if (!strcmp(info.attr_name, "VRSupport"))
 			{
 				/* Save VRSupport availability */
@@ -1515,14 +1493,6 @@ int readEOLparameters(void)
 				OutputToConsole("VRSupport : %d\n", g_VRSupport);
 				OutputToConsole("VRSupport is %s\n",
 						(g_VRSupport == 0) ? "ENABLE" :"DISABLE");
-			}
-			else if (!strcmp(info.attr_name, "VehicleAppSupport"))
-			{
-				/* Save VehicleAppSupport availability */
-				g_VehicleAppSupport = atoi(info.value);
-				OutputToConsole("VehicleAppSupport : %d\n", g_VehicleAppSupport);
-				OutputToConsole("VehicleAppSupport is %s\n",
-						(g_VehicleAppSupport == 0) ? "ENABLE" :"DISABLE");
 			}
 			else if (!strcmp(info.attr_name, "VoiceAlertFeature"))
 			{
@@ -1532,7 +1502,6 @@ int readEOLparameters(void)
 				OutputToConsole("VoiceAlertFeature is %s\n",
 						(g_VoiceAlertFeature == 1) ? "ENABLE" :"DISABLE");
 			}
-
 		}
 
 	}
