@@ -1,0 +1,10 @@
+STATE=Experimental
+INSTALLDIR=armle-v7/bin/
+INSTALLNAME=startermanager
+NAME=startermanager
+USER=PuSharma
+HOST=HIPWN044
+DATE=2017/01/31-14:16:53-IST
+DESCRIPTION=Variant Detect Service - Control startup based on LUM
+STATE=Release
+VERSION= 3.7.0

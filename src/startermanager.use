@@ -1,0 +1,7 @@
+%C - Starter Manager Service (Controls the startup sequence based on Last User Mode)
+
+Options:
+No options required.
+
+Example:
+startermanager &
