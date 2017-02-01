@@ -1273,7 +1273,7 @@ void* starterMonitor(void* args)
 						if (PACKAGE_STATE_RUN == state[i].objState)
 						{
 							//Inform the main thread of Package Availability
-							//OutputToConsole("Package Loaded [%s] i = %d n = %d objid : %d\n", helperEnumToString(state[i].objId), i, n, state[i].objId);
+							//OutputToConsole("Package Loaded [%s] g_nPackagesLoaded : %d\n", helperEnumToString(state[i].objId), g_nPackagesLoaded);
 							pthread_mutex_lock(&gMutexCond);
 
 							mPackageLoadStatus[state[i].objId].currentState = PACKAGE_STATE_RUN;
@@ -1537,21 +1537,6 @@ int readEOLparameters(void)
 }
 int main (int argc, char *argv[])
 {
-#if 0
-	FILE 			*bootinfo_fptr 				= NULL;
-	struct 			MS_bootInfo ms_boot_info	= {0};
-	int 			sfd 						= -1;
-	int 			bolo 						= 0;
-	int 			variantNum 					= 0;
-	int 			screen 						= 0;
-	int 			starter_variant 			= 0;
-	int 			iVariantHandle 				= -1;
-	int 			rc 							= -1;
-	int rvc;
-	int pa;
-	sMyBool 		b_validBootInfoReceived		= TRUE;
-	char buf[] = "echo RearPDCPowerandActiveState::1 >> /pps/can/parkassist";
-#endif
 	FILE *fptr = NULL;
 	FILE *fp;
 	int size = 0, i;
@@ -1560,8 +1545,7 @@ int main (int argc, char *argv[])
 	char foundstring[10];
 	const char *comparestring = "sourceType";
 
-	/* Check whether RVC is engaged or not */
-
+	OutputToConsole("StarterManager Started");
 	/* Read the LastAudioSource state */
 	fp = fopen("/fs/etfs/ModeManager/PersistencyStore.txt", "r");
 	if (fp == NULL){
@@ -1588,6 +1572,7 @@ int main (int argc, char *argv[])
 	fgets(str, size, fp);
 	if(str == NULL){
 		OutputToConsole("String read failed\n");
+		free(str);
 		g_nlastMode = LM_TUNER;
 		goto startpackage;
 	}
@@ -1596,6 +1581,7 @@ int main (int argc, char *argv[])
 	ret = strstr(str, comparestring);
 	if (ret == NULL){
 		OutputToConsole("SourceType not found in the file\n");
+		free(str);
 		g_nlastMode = LM_TUNER;
 		goto startpackage;
 	}
@@ -1621,6 +1607,7 @@ int main (int argc, char *argv[])
 	else
 		g_nlastMode = LM_AUX;
 
+	free(str);
 	fclose(fp);
 
 	if (readEOLparameters() != 0)
@@ -1628,6 +1615,7 @@ int main (int argc, char *argv[])
 		OutputToConsole("Reading EOL params failed, assuming default values\n");
 	}
 
+	/* Check whether RVC is engaged or not */
 #if 0
 	rvc = system("mkdir -p /pps/can");
 	if( rvc == -1 )
@@ -1664,255 +1652,20 @@ int main (int argc, char *argv[])
 	close(pa);
 #endif
 
-#if 0
-	/*SDCARD CD detection logic */
-	InitSDCardHdlr ();
-
-	b_validBootInfoReceived = variant_sample_ids_from_syspage (&ms_boot_info);
-
-	if( TRUE == b_validBootInfoReceived)
+	/* Copy the lastusermode value to temp file for debug purpose */
+	fptr = fopen("/fs/etfs/lum.txt", "w+");
+	if (fptr == NULL)
 	{
-		variantNum = get_variant (ms_boot_info.variant_info);
-
-		// Raj : commented the following function, since it is just a print to console !!!
-		//func_wakup_reason (variantNum, ms_boot_info.wakup_reason);
-
-		bolo = ms_boot_info.bolo & 0x01;
-
-		if((ms_boot_info.system_lineIn >> 4) & 0x01)
-		{
-			DBG_MSG(" ANTITHEFT BIT IS SET, LOCK THE SYSTEM !! ");
-			b_AntiTheft_state = TRUE;
-		}
-
-		DBG_MSG("Variant[%d] WakeupReason[%d] Mode[%s]", variantNum, ms_boot_info.wakup_reason, ((0 == bolo) ? "APP":"BOLO"));
-
-		/*Sample detection */
-		if ((HW_SAMPLE_C0 == ms_boot_info.sample_info) || (HW_SAMPLE_C1 == ms_boot_info.sample_info))
-		{
-			sfd = open("/tmp/C0_SAMPLE", O_CREAT | O_RDWR);
-			if(sfd < 0)
-			{
-				DBG_MSG("FAILED!!!!!! to open/create /tmp/C0_SAMPLE");
-			}
-			else
-			{
-				close (sfd);
-			}
-		}
-		else if ((HW_SAMPLE_C2 == ms_boot_info.sample_info) ||
-				 (HW_SAMPLE_C3 == ms_boot_info.sample_info) ||
-				 (HW_SAMPLE_D0 == ms_boot_info.sample_info) ||
-				 (HW_SAMPLE_D1 == ms_boot_info.sample_info) ||
-				 (HW_SAMPLE_D2 == ms_boot_info.sample_info) ||
-				 (HW_SAMPLE_D3 == ms_boot_info.sample_info)
-				 )
-		{
-			sfd = open("/tmp/C2_SAMPLE", O_CREAT | O_RDWR);
-			if(sfd < 0)
-			{
-				DBG_MSG("FAILED!!! to open/create /tmp/C2_SAMPLE");
-			}
-			else
-			{
-				close (sfd);
-			}
-		}
-		else if (HW_SAMPLE_C1_5 == ms_boot_info.sample_info)
-		{
-			sfd = open("/tmp/C1_5_SAMPLE", O_CREAT | O_RDWR);
-			if(sfd < 0)
-			{
-				DBG_MSG("FAILED!!! to open/create /tmp/C1_5_SAMPLE");
-			}
-			else
-			{
-				close (sfd);
-			}
-		}
-		else
-		{
-			sfd = open("/tmp/C2_SAMPLE", O_CREAT | O_RDWR);
-			if(sfd < 0)
-			{
-				DBG_MSG("FAILED!!! to open/create /tmp/C2_SAMPLE");
-			}
-			else
-			{
-				close (sfd);
-			}
-			DBG_MSG("FATAL ERROR!!! Sample info missing!!! Created C2_SAMPLE Marker file");
-		}
-
-		bootinfo_fptr = fopen("/tmp/lastOn","w");
-		if (bootinfo_fptr == NULL)
-		{
-			DBG_MSG("FAILED!!! to open/create /tmp/lastOn");
-			exit(1);
-		}
-
-		fprintf(bootinfo_fptr,"%d\n",((ms_boot_info.bolo >> 3) & 1));
-		fclose(bootinfo_fptr);
-
-		bootinfo_fptr = fopen("/tmp/illumination","w");
-		if (bootinfo_fptr == NULL)
-		{
-			DBG_MSG("FAILED!!! to open/create /tmp/illumination");
-			exit(1);
-		}
-
-		fprintf(bootinfo_fptr,"%d\n",(ms_boot_info.boardInfo_tft >> 1));
-		fclose(bootinfo_fptr);
-
-		bootinfo_fptr = fopen("/tmp/OnOff","w");
-		if(bootinfo_fptr == NULL)
-		{
-			DBG_MSG("FAILED!!! to open/create /tmp/OnOff");
-			exit(1);
-		}
-
-		fprintf(bootinfo_fptr,"-p 23 -i %d -l %d -t J5 ",(ms_boot_info.boardInfo_tft >> 1),((ms_boot_info.bolo >> 3) & 1));
-
-		if (1 == bolo) 	{	fprintf(bootinfo_fptr,"BOLO\n");	}
-		else			{	fprintf(bootinfo_fptr,"APP\n");		}
-
-		fclose(bootinfo_fptr);
-
-		fptr = fopen("/tmp/variant","w");
-		if (fptr == NULL)
-		{
-			DBG_MSG("FAILED!!! to open/create /tmp/variant");
-			exit(1);
-		}
-		fprintf(fptr,"%d\n",variantNum);
-		fclose(fptr);
-
-		fptr = fopen("/tmp/Diagnostics","w");
-		if (fptr == NULL)
-		{
-			DBG_MSG("FAILED!!! to open/create /tmp/Diagnostics");
-			exit(1);
-		}
-		fprintf(fptr,"%s %d\n","APP",variantNum);
-		fclose(fptr);
-
-		screen = ms_boot_info.screen & 0x7;
-
-		fptr = fopen("/tmp/screen","w");
-		if (fptr == NULL)
-		{
-			DBG_MSG("FAILED!!! to open/create /tmp/screen");
-		}
-		else
-		{
-			if(screen == MAN_NEOPLAN_BUS_LOGO)
-			{
-				fprintf(fptr,"%s","-noscale=1 -useclass=1 image:file=/etc/system/config/logo_neo.png\n");
-			}
-			else if(screen == MAN_TRUCK_LOGO_2018)
-			{
-				fprintf(fptr,"%s","-noscale=1 -useclass=1 image:file=/etc/system/config/logo_Man_Truck_2018.png\n");
-			}
-			else if (screen == MAN_TRUCK_IAA)
-			{
-				fprintf(fptr,"%s","-noscale=1 -useclass=1 image:file=/etc/system/config/logo_Man_Truck_IAA.png\n");
-			}
-			else
-			{
-				fprintf(fptr,"%s","-noscale=1 -useclass=1 image:file=/etc/system/config/logo.png\n");
-			}
-			fclose(fptr);
-		}
-
-		//==========  args to MS_Executor to set Antitheft param for HMI =============
-		fptr = fopen("/tmp/executor_args", "w");
-		if(fptr == NULL)
-		{
-			DBG_MSG("FAILED!!! to open/create /tmp/executor_args");
-		}
-		else
-		{
-			fprintf(fptr,"%s %d\n","-t", b_AntiTheft_state);
-		}
-		fclose(fptr);
-
-		// Function sets the variant information and informs that to server starter.
-		starter_variant = executor (&ms_boot_info, variantNum);
-
-		g_nlastMode = ms_boot_info.lastMode & 0xf;
-
-		if ((LM_TUNER != g_nlastMode) && (LM_MEDIA != g_nlastMode))
-		{
-			DBG_MSG("FAILED!!! to open/create /tmp/ModeManager");
-			g_nlastMode = LM_TUNER;
-		}
-
-		fptr = fopen ("/tmp/ModeManager","w");
-		if (fptr == NULL)
-		{
-			DBG_MSG("FAILED!!! to open/create /tmp/ModeManager");
-			exit(1);
-		}
-		if(System_USB1 == 0)
-		{
-			fprintf (fptr,"%s %d\n","-c /fs/etfs/ModeManager/source_config.txt -t /fs/etfs/ModeManager/trace.ModeManager -r 13 -x -e -h J5 -u 0 -l", g_nlastMode);
-		}
-		else
-		{
-			fprintf (fptr,"%s %d\n","-c /fs/etfs/ModeManager/source_config.txt -t /fs/etfs/ModeManager/trace.ModeManager -r 13 -x -e -h J5 -u 1 -l", g_nlastMode);
-		}
-		fclose (fptr);
-
-		DBG_MSG("Starter variant[%x]", starter_variant);
-
-		// Open starter resource manager interface to communicate with
-		if ((iVariantHandle = open("/dev/starter/variant", O_RDWR)) == -1)
-		{
-			DBG_MSG("Error interface /dev/starter/variant not available");
-			return EXIT_FAILURE;
-		}
-
-		// Variant is set now, server starter and take a decision to start or ignore starting a package
-		rc = devctl (iVariantHandle, (int32_t)DCMD_HBSRVSTR_VARIANT_INFO, &starter_variant, sizeof(starter_variant), NULL);
-		if (rc != 0)
-		{
-			DBG_MSG("FATAL!!! error writing variant");
-		}
-		close (iVariantHandle);
-
-		// Start software update you are in bolo mode
-		if (1 == bolo)
-		{
-			int ihandle = open ("/dev/starter/start", O_RDONLY);
-			if(-1 >= ihandle)
-			{
-				// Add retry if required in future
-				DBG_MSG("open /dev/starter/start failed, cannot load packages");
-				return EXIT_FAILURE;
-			}
-
-			startPackage (ihandle, SoftwareUpdate);
-
-			sleep (2);
-			close (ihandle);
-		}
-		else // otherwise to App mode, what else can i do?
-		{
-#endif
-			/* Copy the lastusermode value to temp file for debug purpose */
-			fptr = fopen("/fs/etfs/lum.txt", "w+");
-			if (fptr == NULL){
-				OutputToConsole("Failed to create lum.txt file");
-				goto startpackage;
-			}
-			fprintf(fptr, "%s %d\n","Last User Mode is", g_nlastMode);
-			fclose(fptr);
+		OutputToConsole("Failed to create lum.txt file");
+		goto startpackage;
+	}
+	fprintf(fptr, "%s %d\n","Last User Mode is", g_nlastMode);
+	fclose(fptr);
 startpackage:
-			/* Start the Application Packages */
-			startAppPackages ();
+	/* Start the Application Packages */
+	startAppPackages ();
 
 	OutputToConsole("Done bye!");
-
 
 	return EXIT_SUCCESS;
 }
