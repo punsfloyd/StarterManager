@@ -183,7 +183,6 @@ sMyBool b_rvcengage = FALSE;
 int g_CarPlayAvailability = 1;		/* Default */
 int g_GPSAntennaAvailable = 1;		/* Default */
 int g_RVCSupported = 0;				/* Default */
-int g_VRSupport = 0;				/* Default */
 int g_VoiceAlertFeature = 1;		/* Default */
 
 int BT_ID[] = {0,0,0,0,0,0};
@@ -969,7 +968,6 @@ void *startPackages (void* args)
 		sMyBool bStage8 	= FALSE;
 		sMyBool bStage9		= FALSE;
 
-
 		int nStage = 0;
 
 		OutputToConsole("start Package thread active, all clear proceed");
@@ -989,11 +987,16 @@ void *startPackages (void* args)
 			{
 				if (FALSE == bStage1)
 				{
+					/* If RVC is engaged, than start the RVC packages immediately */
 					if (b_rvcengage)
 					{
 						startPackage (istarthandle, CAN);
 						startPackage(istarthandle, IVN);
-						startPackage(istarthandle, RVC);
+						/* If Camera is Present, than start the corresponding package */
+						if (g_RVCSupported)
+						{
+							startPackage(istarthandle, RVC);
+						}
 					}
 
 					bStage1 = TRUE;
@@ -1003,7 +1006,7 @@ void *startPackages (void* args)
 				{
 					if ((PACKAGE_STATE_RUN == mPackageLoadStatus[IVN].currentState)
 							&& (PACKAGE_STATE_RUN == mPackageLoadStatus[CAN].currentState)
-							&& (PACKAGE_STATE_RUN == mPackageLoadStatus[RVC].currentState))
+							&& ((g_RVCSupported == 1) ? (PACKAGE_STATE_RUN == mPackageLoadStatus[RVC].currentState) : 1))
 					{
 						nStage = 1;
 					}
@@ -1037,6 +1040,7 @@ void *startPackages (void* args)
 			{
 				if (FALSE == bStage3)
 				{
+					/* Based on LastUserMode, start the corresponding package */
 					if (g_nlastMode == LM_TUNER)
 						startPackage (istarthandle, TUNER);
 					else if (g_nlastMode == LM_MEDIA)
@@ -1110,7 +1114,10 @@ void *startPackages (void* args)
 					{
 						startPackage (istarthandle, CAN);
 						startPackage (istarthandle, IVN);
-						startPackage(istarthandle, RVC);
+						if (g_RVCSupported)
+						{
+							startPackage(istarthandle, RVC);
+						}
 					}
 
 					bStage6 = TRUE;
@@ -1120,7 +1127,7 @@ void *startPackages (void* args)
 				{
 					if ((PACKAGE_STATE_RUN == mPackageLoadStatus[CAN].currentState)
 							&&((PACKAGE_STATE_RUN == mPackageLoadStatus[IVN].currentState))
-							&& (PACKAGE_STATE_RUN == mPackageLoadStatus[RVC].currentState))
+							&& ((g_RVCSupported == 1) ? (PACKAGE_STATE_RUN == mPackageLoadStatus[RVC].currentState) : 1))
 
 					nStage = 6;
 				}
@@ -1134,8 +1141,16 @@ void *startPackages (void* args)
 			{
 				if (FALSE == bStage7)
 				{
-					startPackage (istarthandle, VOICEALERT);
-					startPackage (istarthandle, GPS);
+					/* If VR is supported, start the package */
+					if (g_VoiceAlertFeature)
+					{
+						startPackage (istarthandle, VOICEALERT);
+					}
+					/* If GPS is supported, start the package */
+					if (g_GPSAntennaAvailable)
+					{
+						startPackage (istarthandle, GPS);
+					}
 					startPackage (istarthandle, ANDROIDAUTO);
 					startPackage (istarthandle,	SPEECH);
 					startPackage (istarthandle,	ENGGMENU);
@@ -1144,8 +1159,8 @@ void *startPackages (void* args)
 					bStage7 = TRUE;
 				}
 
-				if ((PACKAGE_STATE_RUN == mPackageLoadStatus[VOICEALERT].currentState)
-						&& (PACKAGE_STATE_RUN == mPackageLoadStatus[GPS].currentState)
+				if (((g_VoiceAlertFeature == 1) ? (PACKAGE_STATE_RUN == mPackageLoadStatus[VOICEALERT].currentState) : 1)
+						&& ((g_GPSAntennaAvailable == 1) ? (PACKAGE_STATE_RUN == mPackageLoadStatus[GPS].currentState) : 1)
 						&& (PACKAGE_STATE_RUN == mPackageLoadStatus[ANDROIDAUTO].currentState)
 						&& (PACKAGE_STATE_RUN == mPackageLoadStatus[SPEECH].currentState)
 						&& (PACKAGE_STATE_RUN == mPackageLoadStatus[ENGGMENU].currentState)
@@ -1161,7 +1176,11 @@ void *startPackages (void* args)
 			{
 				if (FALSE == bStage8)
 				{
-					startPackage (istarthandle,	CARPLAY);
+					/* If CarPlay is supported, start the package */
+					if (g_CarPlayAvailability)
+					{
+						startPackage (istarthandle,	CARPLAY);
+					}
 					startPackage (istarthandle,	SWUPDATE);
 					startPackage (istarthandle,	TOUCHSIMULATION);
 					startPackage (istarthandle,	USBSTATEREADER);
@@ -1169,7 +1188,7 @@ void *startPackages (void* args)
 					bStage8 = TRUE;
 				}
 
-				if ((PACKAGE_STATE_RUN == mPackageLoadStatus[CARPLAY].currentState)
+				if (((g_CarPlayAvailability == 1) ? (PACKAGE_STATE_RUN == mPackageLoadStatus[CARPLAY].currentState) : 1)
 						&& (PACKAGE_STATE_RUN == mPackageLoadStatus[SWUPDATE].currentState)
 						&& (PACKAGE_STATE_RUN == mPackageLoadStatus[TOUCHSIMULATION].currentState)
 						&& (PACKAGE_STATE_RUN == mPackageLoadStatus[USBSTATEREADER].currentState))
@@ -1216,14 +1235,30 @@ void* starterMonitor(void* args)
 	int istarthandle = open("/dev/starter/start",O_RDONLY);
 	uint16_t n = 0u;
 	uint16_t i =0u;
-
+	int total_packages = LAST_PKG;
 	if(-1 >= istarthandle)
 	{
 		OutputToConsole("Unable to open /dev/starter/start");
 		return NULL;
 	}
 	OutputToConsole("MonitorThread Started\n");
-	while ((LAST_PKG  > g_nPackagesLoaded))
+	if (!g_RVCSupported)
+	{
+		total_packages -= 1;
+	}
+	if (!g_VoiceAlertFeature)
+	{
+		total_packages -= 1;
+	}
+	if (!g_GPSAntennaAvailable)
+	{
+		total_packages -= 1;
+	}
+	if (!g_CarPlayAvailability)
+	{
+		total_packages -= 1;
+	}
+	while ((total_packages  > g_nPackagesLoaded))
 	{
 		if (ENOSYS != (n = read (istarthandle, state, sizeof(state))))
 		{
@@ -1485,14 +1520,6 @@ int readEOLparameters(void)
 				OutputToConsole("RVCSupported : %d\n", g_RVCSupported);
 				OutputToConsole("RVCSupported is %s\n",
 						(g_RVCSupported == 1) ? "AVAILABLE" :"UNAVAILABLE");
-			}
-			else if (!strcmp(info.attr_name, "VRSupport"))
-			{
-				/* Save VRSupport availability */
-				g_VRSupport = atoi(info.value);
-				OutputToConsole("VRSupport : %d\n", g_VRSupport);
-				OutputToConsole("VRSupport is %s\n",
-						(g_VRSupport == 0) ? "ENABLE" :"DISABLE");
 			}
 			else if (!strcmp(info.attr_name, "VoiceAlertFeature"))
 			{
