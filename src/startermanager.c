@@ -182,7 +182,6 @@ sMyBool b_rvcengage = FALSE;
 /* EOL Parameters Default Value */
 int g_CarPlayAvailability = 1;		/* Default */
 int g_GPSAntennaAvailable = 1;		/* Default */
-int g_RVCSupported = 0;				/* Default */
 int g_VoiceAlertFeature = 1;		/* Default */
 
 int BT_ID[] = {0,0,0,0,0,0};
@@ -992,11 +991,7 @@ void *startPackages (void* args)
 					{
 						startPackage (istarthandle, CAN);
 						startPackage(istarthandle, IVN);
-						/* If Camera is Present, than start the corresponding package */
-						if (g_RVCSupported)
-						{
-							startPackage(istarthandle, RVC);
-						}
+						startPackage(istarthandle, RVC);
 					}
 
 					bStage1 = TRUE;
@@ -1004,9 +999,9 @@ void *startPackages (void* args)
 
 				if (b_rvcengage)
 				{
-					if ((PACKAGE_STATE_RUN == mPackageLoadStatus[IVN].currentState)
-							&& (PACKAGE_STATE_RUN == mPackageLoadStatus[CAN].currentState)
-							&& ((g_RVCSupported == 1) ? (PACKAGE_STATE_RUN == mPackageLoadStatus[RVC].currentState) : 1))
+					if ((PACKAGE_STATE_RUN == mPackageLoadStatus[CAN].currentState)
+							&& (PACKAGE_STATE_RUN == mPackageLoadStatus[IVN].currentState)
+							&& (PACKAGE_STATE_RUN == mPackageLoadStatus[RVC].currentState))
 					{
 						nStage = 1;
 					}
@@ -1114,10 +1109,7 @@ void *startPackages (void* args)
 					{
 						startPackage (istarthandle, CAN);
 						startPackage (istarthandle, IVN);
-						if (g_RVCSupported)
-						{
-							startPackage(istarthandle, RVC);
-						}
+						startPackage(istarthandle, RVC);
 					}
 
 					bStage6 = TRUE;
@@ -1127,7 +1119,7 @@ void *startPackages (void* args)
 				{
 					if ((PACKAGE_STATE_RUN == mPackageLoadStatus[CAN].currentState)
 							&&((PACKAGE_STATE_RUN == mPackageLoadStatus[IVN].currentState))
-							&& ((g_RVCSupported == 1) ? (PACKAGE_STATE_RUN == mPackageLoadStatus[RVC].currentState) : 1))
+							&& (PACKAGE_STATE_RUN == mPackageLoadStatus[RVC].currentState))
 
 					nStage = 6;
 				}
@@ -1242,10 +1234,6 @@ void* starterMonitor(void* args)
 		return NULL;
 	}
 	OutputToConsole("MonitorThread Started\n");
-	if (!g_RVCSupported)
-	{
-		total_packages -= 1;
-	}
 	if (!g_VoiceAlertFeature)
 	{
 		total_packages -= 1;
@@ -1464,7 +1452,7 @@ void restartToAppMode()
 int readEOLparameters(void)
 {
 	int eol_fd;
-	char eol_pps_path[] = "/ppsqdb/eol?wait,delta,nopersist";
+	char eol_pps_path[] = "/ppsqdb/eol?wait,nopersist";
 	char eol_buf[1024];
 	char *pData = NULL;
 	size_t nread;
@@ -1488,7 +1476,6 @@ int readEOLparameters(void)
 		close(eol_fd);
 		return -1;
 	}
-	//OutputToConsole("EOL Parameters : %s", eol_buf);
 	/* End with null char */
 	eol_buf[nread] = '\0';
 	pData = eol_buf;
@@ -1501,6 +1488,11 @@ int readEOLparameters(void)
 			{
 				/* Save CarPlayAvailability availability */
 				g_CarPlayAvailability = atoi(info.value);
+				if (g_CarPlayAvailability != 0 && g_CarPlayAvailability != 1)
+				{
+					/* If the EOL DID is other than zero or one, keep the value as zero(DISABLE) */
+					g_CarPlayAvailability = 0;
+				}
 				OutputToConsole("CarPlayAvailability : %d\n", g_CarPlayAvailability);
 				OutputToConsole("CarPlayAvailability is %s\n",
 						(g_CarPlayAvailability == 1) ? "ENABLE" :"DISABLE");
@@ -1509,22 +1501,24 @@ int readEOLparameters(void)
 			{
 				/* Save GPSAntennaAvailable availability */
 				g_GPSAntennaAvailable = atoi(info.value);
+				if (g_GPSAntennaAvailable != 0 && g_GPSAntennaAvailable != 1)
+				{
+					/* If the EOL DID is other than zero or one, keep the value as zero(DISABLE) */
+					g_GPSAntennaAvailable = 0;
+				}
 				OutputToConsole("GPSAntennaAvailable : %d\n", g_GPSAntennaAvailable);
 				OutputToConsole("GPSAntennaAvailable is %s\n",
 						(g_GPSAntennaAvailable == 1) ? "AVAILABLE" :"UNAVAILABLE");
-			}
-			else if (!strcmp(info.attr_name, "RVCSupported"))
-			{
-				/* Save RVCSupported availability */
-				g_RVCSupported = atoi(info.value);
-				OutputToConsole("RVCSupported : %d\n", g_RVCSupported);
-				OutputToConsole("RVCSupported is %s\n",
-						(g_RVCSupported == 1) ? "AVAILABLE" :"UNAVAILABLE");
 			}
 			else if (!strcmp(info.attr_name, "VoiceAlertFeature"))
 			{
 				/* Save VoiceAlertFeature availability */
 				g_VoiceAlertFeature = atoi(info.value);
+				if (g_VoiceAlertFeature != 0 && g_VoiceAlertFeature != 1)
+				{
+					/* If the EOL DID is other than zero or one, keep the value as zero(DISABLE) */
+					g_VoiceAlertFeature = 0;
+				}
 				OutputToConsole("VoiceAlertFeature : %d\n", g_VoiceAlertFeature);
 				OutputToConsole("VoiceAlertFeature is %s\n",
 						(g_VoiceAlertFeature == 1) ? "ENABLE" :"DISABLE");
@@ -1569,7 +1563,7 @@ int main (int argc, char *argv[])
 	}
 
 	/* Copy the string into buffer allocated */
-	fgets(str, size, fp);
+	str = fgets(str, size, fp);
 	if(str == NULL){
 		OutputToConsole("String read failed\n");
 		free(str);
