@@ -4,122 +4,6 @@
  *  Created on: Nov 25, 2015
  *      Author: PGaddikeri
  */
-/*
-#ifndef CONFIG_DEFINES_H
-#define CONFIG_DEFINES_H
-
-#define PACKAGE_COUNT	16
-
-const int BOOT_INFO_LENGTH = 16;
-
-const uint16_t MAX_READ_ENTRIES = 512;		// Ensure that this value must be greater then PackageCount+InterfaceCount+ProcessCount as in j5_starter.cfg
-
-/*====================================================================================================================
-* Strictly do not change the order, keep the order in sync with Package Definition in j5_starter.cfg
-====================================================================================================================*/
-/*typedef enum
-{
-	MODE_IDENTIFIER,		// 0
-	EDMA_CH,				// 1
-	SYS_REGISTER,			// 2
-	SoftwareUpdate,			// 3
-	DISPLAY_LAYER,			// 4
-	BASE_DRIVERS,			// 5
-	MEMnSTORAGE,			// 6
-	TUNER_BASE,				// 7
-	DEBUGnHELPERS,			// 8
-	MnS_HMI,				// 9
-	MEDIA,					// 10
-	CANSERVICE,				// 11
-	BLUETOOTHnUTILITY,		// 12
-	SWUPDATE_APP,			// 13
-	UTILITY,				// 14
-	RECOVERY,				// 15
-	LAST_PKG				// 16 - Just use for counter
-} ePackageId;
-
-static const char * PackageStrings[] = {
-	"MODE_IDENTIFIER",
-	"EDMA_CH",
-	"SYS_REGISTER",
-	"SoftwareUpdate",
-	"DISPLAY_LAYER",
-	"BASE_DRIVERS",
-	"MEMnSTORAGE",
-	"TUNER_BASE",
-	"DEBUGnHELPERS",
-	"MnS_HMI",
-	"MEDIA",
-	"CANSERVICE",
-	"BLUETOOTHnUTILITY",
-	"SWUPDATE_APP",
-	"UTILITY",
-	"RECOVERY",
-	"UNKNOWN"
-	};
-
-
-// Raj : This dependency is not used now, for LUM, we may have to override this
-/*int pkgDependencyMatrix[PACKAGE_COUNT][PACKAGE_COUNT] = {
-----------------------------DEPENDS ON---------------------------------------------------------------------------------------
- * ------------------------MODE_IDENTIFIER---EDMA_CH------SYS_REGISTER------SoftwareUpdate---DISPLAY_LAYER------BASE_DRIVERS------MEMnSTORAGE------TUNER_BASE------DEBUGnHELPERS------MnS_HMI------MEDIA------CANSERVICE------BLUETOOTHnUTILITY---SWUPDATEnUTILITY
-	MODE_IDENTIFIER   	{	0,				0,				0,				0,				0,					0,				0,					0,				0,				0,			0,				0,				0,					0 },
-	EDMA_CH           	{	0,				0,				0,				0,				0,					0,				0,					0,				0,				0,			0,				0,				0,					0 },
-	SYS_REGISTER      	{	1,				0,				0,				0,				0,					0,				0,					0,				0,				0,			0,				0,				0,					0 },
-	SoftwareUpdate    	{	1,				0,				0,				0,				0,					0,				0,					0,				0,				0,			0,				0,				0,					0 },
-	DISPLAY_LAYER     	{	0,				0,				1,				0,				0,					0,				0,					0,				0,				0,			0,				0,				0,					0 },
-	BASE_DRIVERS      	{	0,				0,				0,				0,				1,					0,				0,					0,				0,				0,			0,				0,				0,					0 },
-	MEMnSTORAGE       	{	0,				0,				0,				0,				0,					1,				0,					0,				0,				0,			0,				0,				0,					0 },
-	TUNER_BASE        	{	0,				0,				0,				0,				0,					0,				1,					0,				0,				0,			0,				0,				0,					0 },
-	DEBUGnHELPERS     	{	0,				0,				0,				0,				0,					0,				0,					1,				0,				0,			0,				0,				0,					0 },
-	MnS_HMI           	{	0,				0,				0,				0,				0,					0,				0,					1,				0,				0,			0,				0,				0,					0 },
-	MEDIA             	{	0,				0,				0,				0,				0,					0,				0,					1,				0,				0,			0,				0,				0,					0 },
-	CANSERVICE        	{	0,				0,				0,				0,				0,					0,				0,					0,				0,				0,			1,				0,				0,					0 },
-	BLUETOOTHnUTILITY 	{	0,				0,				0,				0,				0,					0,				0,					0,				0,				0,			0,				1,				0,					0 },
-	SWUPDATEnUTILITY  	{	0,				0,				0,				0,				0,					0,				0,					0,				0,				0,			0,				0,				0,					0 }
-};*/
-
-
-/*typedef struct
-{
-	ePackageId		packageid;
-	ePackageState	currentState;
-}	sPackageStatus;
-
-sPackageStatus		mPackageLoadStatus[PACKAGE_COUNT] = {
-		{MODE_IDENTIFIER, PACKAGE_STATE_STOP},
-		{EDMA_CH, PACKAGE_STATE_STOP},
-		{SYS_REGISTER, PACKAGE_STATE_STOP},
-		{SoftwareUpdate, PACKAGE_STATE_STOP},
-		{DISPLAY_LAYER, PACKAGE_STATE_STOP},
-		{BASE_DRIVERS, PACKAGE_STATE_STOP},
-		{MEMnSTORAGE, PACKAGE_STATE_STOP},
-		{TUNER_BASE, PACKAGE_STATE_STOP},
-		{DEBUGnHELPERS, PACKAGE_STATE_STOP},
-		{MnS_HMI, PACKAGE_STATE_STOP},
-		{MEDIA, PACKAGE_STATE_STOP},
-		{CANSERVICE, PACKAGE_STATE_STOP},
-		{BLUETOOTHnUTILITY, PACKAGE_STATE_STOP},
-		{SWUPDATE_APP, PACKAGE_STATE_STOP},
-		{UTILITY, PACKAGE_STATE_STOP},
-		{RECOVERY, PACKAGE_STATE_STOP}
-};
-
-typedef enum
-{
-	FALSE,
-	TRUE
-} sMyBool;
-
-
-#endif /* CONFIG_DEFINES_H */
-
-/*
- * utils.h
- *
- *  Created on: Nov 25, 2015
- *      Author: PGaddikeri
- */
 
 #ifndef CONFIG_DEFINES_H
 #define CONFIG_DEFINES_H
@@ -131,7 +15,7 @@ const int BOOT_INFO_LENGTH = 16;
 const uint16_t MAX_READ_ENTRIES = 512;		// Ensure that this value must be greater then PackageCount+InterfaceCount+ProcessCount as in j5_starter.cfg
 
 /*====================================================================================================================
-* Strictly do not change the order, keep the order in sync with Package Definition in j5_starter.cfg
+ Strictly do not change the order, keep the order in sync with Package Definition in j5_starter.cfg
 ====================================================================================================================*/
 typedef enum
 {
