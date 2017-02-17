@@ -259,12 +259,12 @@ void *startPackages (void* args)
 				if (FALSE == bStage7)
 				{
 					/* If VR is supported, start the package */
-					if (g_VoiceAlertFeature)
+					if (g_VoiceAlertFeature == 1)
 					{
 						startPackage (istarthandle, VOICEALERT);
 					}
 					/* If GPS is supported, start the package */
-					if (g_GPSAntennaAvailable)
+					if (g_GPSAntennaAvailable == 1)
 					{
 						startPackage (istarthandle, GPS);
 					}
@@ -294,7 +294,7 @@ void *startPackages (void* args)
 				if (FALSE == bStage8)
 				{
 					/* If CarPlay is supported, start the package */
-					if (g_CarPlayAvailability)
+					if (g_CarPlayAvailability == 1)
 					{
 						startPackage (istarthandle,	CARPLAY);
 					}
