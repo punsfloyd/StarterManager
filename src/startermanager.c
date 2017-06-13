@@ -276,10 +276,10 @@ void *startPackages (void* args)
 						startPackage (istarthandle, VOICEALERT);
 					}
 					/* If GPS is supported, start the package */
-					if (g_GPSAntennaAvailable == 1)
-					{
+//					if (g_GPSAntennaAvailable == 1)
+//					{
 						startPackage (istarthandle, GPS);
-					}
+//					}
 					if ((g_CarPlayAvailability == 1) || (g_AndroidAutoFeature == 1))
 					{
 						startPackage (istarthandle, MMRENDERER);
@@ -378,10 +378,11 @@ void* starterMonitor(void* args)
 	{
 		total_packages -= 1;
 	}
-	if (!g_GPSAntennaAvailable)
+/*	if (!g_GPSAntennaAvailable)
 	{
 		total_packages -= 1;
 	}
+*/
 	if (!g_CarPlayAvailability || g_CarPlayFileExist != 0)
 	{
 		total_packages -= 1;
@@ -640,8 +641,18 @@ int main (int argc, char *argv[])
 	const char *filename = "/fs/etfs/carplay_marker_file";
 	const char *dbustrace_filename = "/fs/etfs/dbustrace_marker_file";
 	struct stat buffer;
-
+	int sys = 0;
 	OutputToConsole("StarterManager Started");
+
+	sys = system("touch /fs/etfs/carplay_marker_file");
+	if( sys == -1 )
+	{
+		OutputToConsole( "system call touch failed", sys );
+	}
+	else
+	{
+		OutputToConsole( "result of running command is %d\n", WEXITSTATUS( sys ) );
+	}
 
 	/* Read the LastAudioSource state */
 	fp = fopen("/fs/etfs/ModeManager/PersistencyStore.txt", "r");
