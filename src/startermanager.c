@@ -11,13 +11,14 @@
 #include <sys/pps.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <sys/stat.h>
 
 /* Macro for Enable/Disable Console Prints */
-#define PRINT_CONSOLE
+#undef PRINT_CONSOLE
 #ifdef PRINT_CONSOLE
 #define OutputToConsole(args...) fflush(stdout); printf("Line %d : ", __LINE__); printf("STMGR - "); printf(args); printf("\n"); fflush(stdout)
 #else
-#define OutputToConsole(args...) printf();
+#define OutputToConsole(args...) (void)(0)
 #endif
 
 tStarterObjState	gObjState;
@@ -42,6 +43,9 @@ sMyBool b_rvcengage = FALSE;
 int g_CarPlayAvailability = 1;		/* Default */
 int g_GPSAntennaAvailable = 1;		/* Default */
 int g_VoiceAlertFeature = 1;		/* Default */
+int g_AndroidAutoFeature = 1;		/* Default */
+int g_CarPlayFileExist = 1;
+int g_DbustraceFileExist = 1;
 
 const char* helperEnumToString(int id)
 {
@@ -140,14 +144,15 @@ void *startPackages (void* args)
 			{
 				if (FALSE == bStage2)
 				{
-					startPackage (istarthandle, HMI);
-					startPackage (istarthandle, USBLAUNCHER);
+					/* As both these packages are now started in AutoStart, removing them */
+					//startPackage (istarthandle, USBLAUNCHER);
+					//startPackage (istarthandle, HMI);
 
 					bStage2 = TRUE;
 				}
 
-				if ((PACKAGE_STATE_RUN == mPackageLoadStatus[HMI].currentState)
-							&& (PACKAGE_STATE_RUN == mPackageLoadStatus[USBLAUNCHER].currentState))
+				/*if ((PACKAGE_STATE_RUN == mPackageLoadStatus[HMI].currentState)
+							&& (PACKAGE_STATE_RUN == mPackageLoadStatus[USBLAUNCHER].currentState))*/
 
 				{
 					nStage = 2;
@@ -175,6 +180,7 @@ void *startPackages (void* args)
 						|| (PACKAGE_STATE_RUN == mPackageLoadStatus[MEDIA].currentState))
 				{
 					nStage = 3;
+
 				}
 
 			}
@@ -198,6 +204,9 @@ void *startPackages (void* args)
 						&& (PACKAGE_STATE_RUN == mPackageLoadStatus[MEDIA].currentState))
 				{
 					nStage = 4;
+					/* As USB Audio needs to be played under 18sec, this delay is introduce so that no other process used CPU */
+					if (g_nlastMode == LM_MEDIA)
+							sleep(4);
 				}
 
 			}
@@ -210,7 +219,10 @@ void *startPackages (void* args)
 					startPackage (istarthandle, DIAGNOSTICS);
 					startPackage (istarthandle, CONNECTIVITY);
 					startPackage (istarthandle, SMARTAPPLECONNECT);
-					startPackage (istarthandle, TRACEMONITOR);
+					if (g_DbustraceFileExist == 0)
+					{
+						startPackage (istarthandle, TRACEMONITOR);
+					}
 
 					bStage5 = TRUE;
 				}
@@ -218,7 +230,7 @@ void *startPackages (void* args)
 				if ((PACKAGE_STATE_RUN == mPackageLoadStatus[DIAGNOSTICS].currentState)
 						&& (PACKAGE_STATE_RUN == mPackageLoadStatus[CONNECTIVITY].currentState)
 						&& (PACKAGE_STATE_RUN == mPackageLoadStatus[SMARTAPPLECONNECT].currentState)
-						&&(PACKAGE_STATE_RUN == mPackageLoadStatus[TRACEMONITOR].currentState))
+						&& ((g_DbustraceFileExist == 0) ? (PACKAGE_STATE_RUN == mPackageLoadStatus[TRACEMONITOR].currentState) : 1))
 				{
 					nStage = 5;
 				}
@@ -243,7 +255,7 @@ void *startPackages (void* args)
 				if (!b_rvcengage)
 				{
 					if ((PACKAGE_STATE_RUN == mPackageLoadStatus[CAN].currentState)
-							&&((PACKAGE_STATE_RUN == mPackageLoadStatus[IVN].currentState))
+							&& ((PACKAGE_STATE_RUN == mPackageLoadStatus[IVN].currentState))
 							&& (PACKAGE_STATE_RUN == mPackageLoadStatus[RVC].currentState))
 
 					nStage = 6;
@@ -268,6 +280,10 @@ void *startPackages (void* args)
 					{
 						startPackage (istarthandle, GPS);
 					}
+					if ((g_CarPlayAvailability == 1) || (g_AndroidAutoFeature == 1))
+					{
+						startPackage (istarthandle, MMRENDERER);
+					}
 					startPackage (istarthandle, ANDROIDAUTO);
 					startPackage (istarthandle,	SPEECH);
 					startPackage (istarthandle,	ENGGMENU);
@@ -278,6 +294,8 @@ void *startPackages (void* args)
 
 				if (((g_VoiceAlertFeature == 1) ? (PACKAGE_STATE_RUN == mPackageLoadStatus[VOICEALERT].currentState) : 1)
 						&& ((g_GPSAntennaAvailable == 1) ? (PACKAGE_STATE_RUN == mPackageLoadStatus[GPS].currentState) : 1)
+						&& (((g_CarPlayAvailability == 1) || (g_AndroidAutoFeature == 1)) ?
+								(PACKAGE_STATE_RUN == mPackageLoadStatus[MMRENDERER].currentState) : 1)
 						&& (PACKAGE_STATE_RUN == mPackageLoadStatus[ANDROIDAUTO].currentState)
 						&& (PACKAGE_STATE_RUN == mPackageLoadStatus[SPEECH].currentState)
 						&& (PACKAGE_STATE_RUN == mPackageLoadStatus[ENGGMENU].currentState)
@@ -293,20 +311,19 @@ void *startPackages (void* args)
 			{
 				if (FALSE == bStage8)
 				{
-					/* If CarPlay is supported, start the package */
-					if (g_CarPlayAvailability == 1)
+					/* If CarPlay is supported &
+					 * If Marker file is present, start the package */
+					if (g_CarPlayAvailability == 1 && g_CarPlayFileExist == 0)
 					{
 						startPackage (istarthandle,	CARPLAY);
 					}
-					startPackage (istarthandle,	SWUPDATE);
 					startPackage (istarthandle,	TOUCHSIMULATION);
 					startPackage (istarthandle,	USBSTATEREADER);
 
 					bStage8 = TRUE;
 				}
 
-				if (((g_CarPlayAvailability == 1) ? (PACKAGE_STATE_RUN == mPackageLoadStatus[CARPLAY].currentState) : 1)
-						&& (PACKAGE_STATE_RUN == mPackageLoadStatus[SWUPDATE].currentState)
+				if ((((g_CarPlayAvailability == 1) && (g_CarPlayFileExist == 0))? (PACKAGE_STATE_RUN == mPackageLoadStatus[CARPLAY].currentState) : 1)
 						&& (PACKAGE_STATE_RUN == mPackageLoadStatus[TOUCHSIMULATION].currentState)
 						&& (PACKAGE_STATE_RUN == mPackageLoadStatus[USBSTATEREADER].currentState))
 				{
@@ -321,13 +338,11 @@ void *startPackages (void* args)
 				if (FALSE == bStage9)
 				{
 					startPackage (istarthandle,	NANDMANAGER);
-					startPackage (istarthandle,	STOPTATALOGO);
 
 					bStage9 = TRUE;
 				}
 
-				if ((PACKAGE_STATE_RUN == mPackageLoadStatus[NANDMANAGER].currentState)
-						&& (PACKAGE_STATE_RUN == mPackageLoadStatus[STOPTATALOGO].currentState))
+				if ((PACKAGE_STATE_RUN == mPackageLoadStatus[NANDMANAGER].currentState))
 				{
 					nStage = 9;
 					bAllLoaded = TRUE;
@@ -341,7 +356,7 @@ void *startPackages (void* args)
 
 	close(istarthandle);
 	// Ready to join
-	pthread_exit (0);
+	//pthread_exit (0);
 
 	return 0;
 
@@ -350,7 +365,7 @@ void* starterMonitor(void* args)
 {
 	tStarterObjState state[MAX_READ_ENTRIES];
 	int istarthandle = open("/dev/starter/start",O_RDONLY);
-	uint16_t n = 0u;
+	int16_t n = 0;
 	uint16_t i =0u;
 	int total_packages = LAST_PKG;
 	if(-1 >= istarthandle)
@@ -367,7 +382,18 @@ void* starterMonitor(void* args)
 	{
 		total_packages -= 1;
 	}
-	if (!g_CarPlayAvailability)
+	if (!g_CarPlayAvailability || g_CarPlayFileExist != 0)
+	{
+		total_packages -= 1;
+	}
+	/* If both AA and CarPlay DID are disable, decrement the package count
+	 * since MM-RENDERER package will not be launched
+	 */
+	if (!g_CarPlayAvailability && !g_AndroidAutoFeature)
+	{
+		total_packages -= 1;
+	}
+	if (g_DbustraceFileExist != 0)
 	{
 		total_packages -= 1;
 	}
@@ -461,7 +487,10 @@ void startAppPackages ()
 		goto startthread;
 	}
 
-	/* Make sure that the AUDIO_DRIVERS_TWO package gets successfully started
+	/* Initialize the structure to all zero's */
+	memset(state, 0, sizeof(state));
+
+	/* Make sure that the PERSISTENCY package gets successfully started
 	 * before starting any manual packages
 	 */
 	while (quit) {
@@ -473,7 +502,7 @@ void startAppPackages ()
 				{
 					if (PACKAGE_STATE_RUN == state[i].objState)
 					{
-						if (!strcmp(helperEnumToString(state[i].objId), "AUDIO_DRIVERS_TWO"))
+						if (!strcmp(helperEnumToString(state[i].objId), "PERSISTENCY_PPS"))
 						{
 							quit = false;
 							//OutputToConsole("Packages loaded [%s], ObjectType : %d, domainid : %d, objectid : %d Read returned : %d\n",
@@ -491,9 +520,8 @@ void startAppPackages ()
 	}
 	close(istarthandle);
 
-	initGlobaldata ();
-
 startthread:
+	initGlobaldata ();
 	/* Start the Starter and Monitoring thread */
 	pthread_create (&starterThread, NULL, startPackages, NULL);
 	pthread_create (&monitorThread, NULL, starterMonitor, NULL);
@@ -513,7 +541,7 @@ int readEOLparameters(void)
 	char eol_pps_path[] = "/ppsqdb/eol?wait,nopersist";
 	char eol_buf[1024];
 	char *pData = NULL;
-	size_t nread;
+	int nread;
 	pps_status_t status;
 	pps_attrib_t info;
 
@@ -581,23 +609,40 @@ int readEOLparameters(void)
 				OutputToConsole("VoiceAlertFeature is %s\n",
 						(g_VoiceAlertFeature == 1) ? "ENABLE" :"DISABLE");
 			}
+			else if (!strcmp(info.attr_name, "AndroidAutoFeature"))
+			{
+				g_AndroidAutoFeature = atoi(info.value);
+				if (g_AndroidAutoFeature != 0 && g_AndroidAutoFeature != 1)
+				{
+					/* If the EOL DID is other than zero or one, keep the value as zero(DISABLE) */
+					g_AndroidAutoFeature = 0;
+				}
+				OutputToConsole("AndroidAutoFeature : %d\n", g_AndroidAutoFeature);
+				OutputToConsole("AndroidAutoFeature is %s\n",
+						(g_AndroidAutoFeature == 1) ? "ENABLE" :"DISABLE");
+			}
 		}
 
 	}
 	close(eol_fd);
 	return 0;
 }
+
 int main (int argc, char *argv[])
 {
-	FILE *fptr = NULL;
+	//FILE *fptr = NULL;
 	FILE *fp;
 	int size = 0, i;
 	char *str;
 	char *ret;
 	char foundstring[10];
 	const char *comparestring = "sourceType";
+	const char *filename = "/fs/etfs/carplay_marker_file";
+	const char *dbustrace_filename = "/fs/etfs/dbustrace_marker_file";
+	struct stat buffer;
 
 	OutputToConsole("StarterManager Started");
+
 	/* Read the LastAudioSource state */
 	fp = fopen("/fs/etfs/ModeManager/PersistencyStore.txt", "r");
 	if (fp == NULL){
@@ -607,10 +652,22 @@ int main (int argc, char *argv[])
 	}
 
 	/* Find the total size of the file */
-	fseek(fp, 0, 2);
+	if (fseek(fp, 0, 2) != 0)
+	{
+		OutputToConsole("fseek failed\n");
+		goto startpackage;
+	}
 	size = ftell(fp);
+	if (size < 0)
+	{
+		size = 500;
+	}
 
-	fseek(fp, 0, SEEK_SET);
+	if (fseek(fp, 0, SEEK_SET) != 0)
+	{
+		OutputToConsole("fseek failed\n");
+		goto startpackage;
+	}
 
 	/* Allocate the string as per size calculated */
 	str = malloc(size);
@@ -621,8 +678,8 @@ int main (int argc, char *argv[])
 	}
 
 	/* Copy the string into buffer allocated */
-	str = fgets(str, size, fp);
-	if(str == NULL){
+	if (fgets(str, size, fp) == NULL )
+	{
 		OutputToConsole("String read failed\n");
 		free(str);
 		g_nlastMode = LM_TUNER;
@@ -667,6 +724,19 @@ int main (int argc, char *argv[])
 		OutputToConsole("Reading EOL params failed, assuming default values\n");
 	}
 
+	/* Check if carplay marker file is present */
+	g_CarPlayFileExist = stat(filename, &buffer);
+	OutputToConsole("g_CarPlayFileExist : %d", g_CarPlayFileExist);
+	if (g_CarPlayFileExist == 0)
+	{
+		OutputToConsole("Marker file exist");
+	}
+	g_DbustraceFileExist = stat(dbustrace_filename, &buffer);
+	OutputToConsole("g_DbustraceFileExist : %d", g_DbustraceFileExist);
+	if (g_DbustraceFileExist == 0)
+	{
+		OutputToConsole("DbusTrace Marker file exist");
+	}
 	/* Check whether RVC is engaged or not */
 #if 0
 	rvc = system("mkdir -p /pps/can");
@@ -705,6 +775,7 @@ int main (int argc, char *argv[])
 #endif
 
 	/* Copy the lastusermode value to temp file for debug purpose */
+#if 0
 	fptr = fopen("/fs/etfs/lum.txt", "w+");
 	if (fptr == NULL)
 	{
@@ -713,6 +784,7 @@ int main (int argc, char *argv[])
 	}
 	fprintf(fptr, "%s %d\n","Last User Mode is", g_nlastMode);
 	fclose(fptr);
+#endif
 startpackage:
 	/* Start the Application Packages */
 	startAppPackages ();

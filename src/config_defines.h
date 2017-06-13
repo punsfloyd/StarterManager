@@ -8,7 +8,7 @@
 #ifndef CONFIG_DEFINES_H
 #define CONFIG_DEFINES_H
 
-#define PACKAGE_COUNT	32
+#define PACKAGE_COUNT	33
 
 const int BOOT_INFO_LENGTH = 16;
 
@@ -40,8 +40,8 @@ typedef enum
 	TRACEMONITOR,					// 18
 	CAN,							// 19
 	VOICEALERT,						// 20
-	GPS,					// 21
-	ANDROIDAUTO,							// 22
+	GPS,							// 21
+	ANDROIDAUTO,					// 22
 	SPEECH,							// 23
 	ENGGMENU,						// 24
 	SMARTLINK,						// 25
@@ -51,7 +51,8 @@ typedef enum
 	USBSTATEREADER,					// 29
 	NANDMANAGER,					// 30
 	STOPTATALOGO,					// 31
-	LAST_PKG						// 32
+	MMRENDERER,						// 32
+	LAST_PKG						// 33
 } ePackageId;
 
 static const char * PackageStrings[] = {
@@ -87,7 +88,8 @@ static const char * PackageStrings[] = {
 		"USBSTATEREADER",			// 29
 		"NANDMANAGER",				// 30
 		"STOPTATALOGO",				// 31
-		"UNKNOWN"					// 32
+		"MMRENDERER",				// 32
+		"UNKNOWN"					// 33
 	};
 
 
@@ -150,7 +152,8 @@ sPackageStatus		mPackageLoadStatus[PACKAGE_COUNT] = {
 		{TOUCHSIMULATION, PACKAGE_STATE_STOP},
 		{USBSTATEREADER, PACKAGE_STATE_STOP},
 		{NANDMANAGER, PACKAGE_STATE_STOP},
-		{STOPTATALOGO, PACKAGE_STATE_STOP}
+		{STOPTATALOGO, PACKAGE_STATE_STOP},
+		{MMRENDERER, PACKAGE_STATE_STOP}
 };
 
 typedef enum
