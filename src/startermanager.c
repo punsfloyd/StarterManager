@@ -640,6 +640,9 @@ void checkProcessState(void)
 	}
 	else
 	{
+		char notify_pps_path[] = "/pps/monitor_process?wait,nopersist";
+		char notify_message[] = "STOP";
+		int fd = 0, nwrite = 0;
 		int numelements = sizeof(keyvalue)/sizeof(char);
 		int i = 0;
 		/* Continuously check the state of running processes */
@@ -661,6 +664,24 @@ void checkProcessState(void)
 						processcurstate.stateResponse.currentState,
 						processcurstate.stateResponse.currentState == 5 ? "STOP" : "",
 						processcurstate.stateResponse.currentState == 3 ? "RUN" : "");
+				if (processcurstate.stateResponse.currentState == 5)
+				{
+					/* Notify to ONOFFService through PPS interface */
+					fd = open(notify_pps_path, O_RDWR| O_CREAT, 0666);
+					if (fd < 0)
+					{
+						OutputToConsole("Fail to open %s, error : %d\n", notify_pps_path, fd);
+						return ;
+					}
+
+					nwrite = write(fd, (void*)notify_message, sizeof(notify_message) - 1);
+					if (nwrite < 0)
+					{
+						OutputToConsole("Write failed on %s, error : %d", notify_pps_path, fd);
+						return ;
+					}
+					close(fd);
+				}
 			}
 		}
 	}
