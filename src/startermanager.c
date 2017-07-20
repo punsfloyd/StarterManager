@@ -13,8 +13,9 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 
+
 /* Macro for Enable/Disable Console Prints */
-#undef PRINT_CONSOLE
+#define PRINT_CONSOLE
 #ifdef PRINT_CONSOLE
 #define OutputToConsole(args...) fflush(stdout); printf("Line %d : ", __LINE__); printf("STMGR - "); printf(args); printf("\n"); fflush(stdout)
 #else
@@ -276,10 +277,10 @@ void *startPackages (void* args)
 						startPackage (istarthandle, VOICEALERT);
 					}
 					/* If GPS is supported, start the package */
-//					if (g_GPSAntennaAvailable == 1)
-//					{
+					if (g_GPSAntennaAvailable == 1)
+					{
 						startPackage (istarthandle, GPS);
-//					}
+					}
 					if ((g_CarPlayAvailability == 1) || (g_AndroidAutoFeature == 1))
 					{
 						startPackage (istarthandle, MMRENDERER);
@@ -378,11 +379,10 @@ void* starterMonitor(void* args)
 	{
 		total_packages -= 1;
 	}
-/*	if (!g_GPSAntennaAvailable)
+	if (!g_GPSAntennaAvailable)
 	{
 		total_packages -= 1;
 	}
-*/
 	if (!g_CarPlayAvailability || g_CarPlayFileExist != 0)
 	{
 		total_packages -= 1;
@@ -629,6 +629,42 @@ int readEOLparameters(void)
 	return 0;
 }
 
+void checkProcessState(void)
+{
+	int istarthandle = open("/dev/starter/start", O_RDONLY);
+
+	if(-1 >= istarthandle)
+	{
+		OutputToConsole("Unable to open /dev/starter/start");
+		return;
+	}
+	else
+	{
+		int numelements = sizeof(keyvalue)/sizeof(char);
+		int i = 0;
+		/* Continuously check the state of running processes */
+		while(1)
+		{
+			/* Iterate over the list of all process */
+			for (i = 0; i < numelements; i++)
+			{
+				hbsrvstr_starterobj_state_query_t processcurstate;
+				processcurstate.stateRequest.domainId = 0;
+				processcurstate.stateRequest.objId = keyvalue[i];
+				printf("[STMGR] Process state [%d-%d]", processcurstate.stateRequest.domainId,
+															processcurstate.stateRequest.objId);
+				devctl(istarthandle, DCMD_HBSRVSTR_PROCESS_STATE, &processcurstate, sizeof(processcurstate), NULL);
+				printf("\t Requested state  %d => %s%s\t Current state %d => %s%s\n",
+						processcurstate.stateResponse.requestedState,
+						processcurstate.stateResponse.requestedState == 5 ? "STOP" : "",
+						processcurstate.stateResponse.requestedState == 3 ? "RUN" : "",
+						processcurstate.stateResponse.currentState,
+						processcurstate.stateResponse.currentState == 5 ? "STOP" : "",
+						processcurstate.stateResponse.currentState == 3 ? "RUN" : "");
+			}
+		}
+	}
+}
 int main (int argc, char *argv[])
 {
 	//FILE *fptr = NULL;
@@ -641,18 +677,8 @@ int main (int argc, char *argv[])
 	const char *filename = "/fs/etfs/carplay_marker_file";
 	const char *dbustrace_filename = "/fs/etfs/dbustrace_marker_file";
 	struct stat buffer;
-	int sys = 0;
-	OutputToConsole("StarterManager Started");
 
-	sys = system("touch /fs/etfs/carplay_marker_file");
-	if( sys == -1 )
-	{
-		OutputToConsole( "system call touch failed", sys );
-	}
-	else
-	{
-		OutputToConsole( "result of running command is %d\n", WEXITSTATUS( sys ) );
-	}
+	OutputToConsole("StarterManager Started");
 
 	/* Read the LastAudioSource state */
 	fp = fopen("/fs/etfs/ModeManager/PersistencyStore.txt", "r");
@@ -799,6 +825,11 @@ int main (int argc, char *argv[])
 startpackage:
 	/* Start the Application Packages */
 	startAppPackages ();
+
+	/* Monitor the Process state
+	 * If Process goes into STOP state, notify to ONOffService
+	 */
+	checkProcessState();
 
 	OutputToConsole("Done bye!");
 
