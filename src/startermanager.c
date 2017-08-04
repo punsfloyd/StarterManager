@@ -12,6 +12,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/stat.h>
+#include <errno.h>
 
 
 /* Macro for Enable/Disable Console Prints */
@@ -640,50 +641,108 @@ void checkProcessState(void)
 	}
 	else
 	{
+		char read_message[1024];
 		char notify_pps_path[] = "/pps/monitor_process?wait,nopersist";
-		char notify_message[] = "STOP";
-		int fd = 0, nwrite = 0;
-		int numelements = sizeof(keyvalue)/sizeof(char);
-		int i = 0;
+		char notify_message[] = "Process_Stop::1";
+		int fd = 0, nwrite = 0, nread = 0, maxCount = 0, objCount = 0, i = 0, msg_read = 0;
+		tStarterObjState *changedObjects = NULL;
+
+		/* Calculate the no of process, packages and interfaces in the tata configuration */
+		devctl(istarthandle, DCMD_HBSRVSTR_PACKAGE_COUNT,
+				&objCount, sizeof(int32_t), NULL);
+		maxCount += objCount;
+		devctl(istarthandle, DCMD_HBSRVSTR_PROCESS_COUNT,
+				&objCount, sizeof(int32_t), NULL);
+		maxCount += objCount;
+		devctl(istarthandle, DCMD_HBSRVSTR_INTERFACE_COUNT,
+				&objCount, sizeof(int32_t), NULL);
+		maxCount += objCount;
+
+		changedObjects = (tStarterObjState *)malloc(sizeof(tStarterObjState) * maxCount);
+		if (!changedObjects)
+		{
+			OutputToConsole("Malloc failed, error : %p", changedObjects);
+			return;
+		}
 		/* Continuously check the state of running processes */
 		while(1)
 		{
-			/* Iterate over the list of all process */
-			for (i = 0; i < numelements; i++)
+			OutputToConsole("Read the starter interface");
+			memset(changedObjects, 0, sizeof(tStarterObjState) * maxCount);
+			/* Read the starter interface, this call will block until any process state is changed */
+			nread = read(istarthandle, changedObjects, sizeof(tStarterObjState) * maxCount);
+			OutputToConsole("Objects read : %d", nread);
+			for (i = 0; i < nread; i++)
 			{
-				hbsrvstr_starterobj_state_query_t processcurstate;
-				processcurstate.stateRequest.domainId = 0;
-				processcurstate.stateRequest.objId = keyvalue[i];
-				printf("[STMGR] Process state [%d-%d]", processcurstate.stateRequest.domainId,
-															processcurstate.stateRequest.objId);
-				devctl(istarthandle, DCMD_HBSRVSTR_PROCESS_STATE, &processcurstate, sizeof(processcurstate), NULL);
-				printf("\t Requested state  %d => %s%s\t Current state %d => %s%s\n",
-						processcurstate.stateResponse.requestedState,
-						processcurstate.stateResponse.requestedState == 5 ? "STOP" : "",
-						processcurstate.stateResponse.requestedState == 3 ? "RUN" : "",
-						processcurstate.stateResponse.currentState,
-						processcurstate.stateResponse.currentState == 5 ? "STOP" : "",
-						processcurstate.stateResponse.currentState == 3 ? "RUN" : "");
-				if (processcurstate.stateResponse.currentState == 5)
+				/* Check for the Object Type to be Process */
+				switch(changedObjects->objType)
 				{
-					/* Notify to ONOFFService through PPS interface */
-					fd = open(notify_pps_path, O_RDWR| O_CREAT, 0666);
-					if (fd < 0)
+				case PROCESS_ENTITY:
+					/* Notify to OnOffService if the process goes to STOP state using pps interface */
+					if (changedObjects->objState == 5)
 					{
-						OutputToConsole("Fail to open %s, error : %d\n", notify_pps_path, fd);
-						return ;
-					}
+						/* Open the PPS node */
+						fd = open(notify_pps_path, O_WRONLY | O_CREAT, 0666);
+						if (fd < 0)
+						{
+							OutputToConsole("Fail to open %s, error : %d, Reason : %s",
+									notify_pps_path, fd,strerror(errno));
+							return ;
+						}
+						/* Write to the PPS note */
+						nwrite = write(fd, notify_message, sizeof(notify_message));
+						if (nwrite < 0)
+						{
+							OutputToConsole("Write failed on %s, error : %d, Reason : %s",
+									notify_pps_path, nwrite, strerror(errno));
+							close(fd);
+							return ;
+						}
 
-					nwrite = write(fd, (void*)notify_message, sizeof(notify_message) - 1);
-					if (nwrite < 0)
-					{
-						OutputToConsole("Write failed on %s, error : %d", notify_pps_path, fd);
-						return ;
+						close(fd);
+						fd = open(notify_pps_path, O_RDONLY | O_CREAT, 0666);
+						if (fd < 0)
+						{
+							OutputToConsole("Fail to open %s, error : %d\n", notify_pps_path, fd);
+							return ;
+						}
+						delay(50);
+						memset(read_message, 0, sizeof(read_message));
+						char *pData = NULL;
+						int process_state = 0;
+						pps_status_t status;
+						pps_attrib_t info;
+						msg_read = read(fd, read_message, sizeof(read_message));
+						printf("Objects read : %d\n", msg_read);
+						if (msg_read < 0)
+						{
+							OutputToConsole("Read failed on %s, error : %d, Reason : %s",
+									notify_pps_path, msg_read, strerror(errno));
+							return ;
+						}
+						OutputToConsole("Message received : %s", read_message);
+						read_message[msg_read] = '\0';
+						pData = read_message;
+						while ((status = ppsparse(&pData, NULL, NULL, &info, 0)) != PPS_END)
+						{
+							if (status == PPS_ATTRIBUTE)
+							{
+								if (!strcmp(info.attr_name, "Process_Stop"))
+								{
+									process_state = atoi(info.value);
+									printf("Process State : %d\n", process_state);
+								}
+							}
+						}
+						close(fd);
+						break;
 					}
-					close(fd);
+				default:
+					break;
 				}
 			}
 		}
+		free(changedObjects);
 	}
 }
 int main (int argc, char *argv[])
@@ -795,42 +854,6 @@ int main (int argc, char *argv[])
 	{
 		OutputToConsole("DbusTrace Marker file exist");
 	}
-	/* Check whether RVC is engaged or not */
-#if 0
-	rvc = system("mkdir -p /pps/can");
-	if( rvc == -1 )
-		{
-			OutputToConsole( "************************** mkdir failed : %d\n ****************************", rvc );
-			goto startpackage;
-		}
-
-		else
-		{
-			OutputToConsole( "result of running command is %d\n",
-			WEXITSTATUS( rvc ) );
-		}
-	pa = open("/pps/can/parkassist?wait,delta,nopersist", O_RDWR| O_CREAT, 0666 );
-	if (pa < 0)
-	{
-		OutputToConsole("************************ File failed to open\n ************************");
-		goto startpackage;
-	}
-
-	rvc = system( "echo RearPDCPowerandActiveState::1 >> /pps/can/parkassist" );
-	//rvc = write(pa, buf, sizeof(buf));
-	if( rvc == -1 )
-	{
-		OutputToConsole( "************************** system called failed : %d\n ****************************", rvc );
-		goto startpackage;
-	}
-
-	else
-	{
-		printf( "result of running command is %d\n",
-		WEXITSTATUS( rvc ) );
-	}
-	close(pa);
-#endif
 
 	/* Copy the lastusermode value to temp file for debug purpose */
 #if 0
