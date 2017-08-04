@@ -16,7 +16,7 @@
 
 
 /* Macro for Enable/Disable Console Prints */
-#define PRINT_CONSOLE
+#undef PRINT_CONSOLE
 #ifdef PRINT_CONSOLE
 #define OutputToConsole(args...) fflush(stdout); printf("Line %d : ", __LINE__); printf("STMGR - "); printf(args); printf("\n"); fflush(stdout)
 #else
@@ -641,10 +641,9 @@ void checkProcessState(void)
 	}
 	else
 	{
-		char read_message[1024];
 		char notify_pps_path[] = "/pps/monitor_process?wait,nopersist";
 		char notify_message[] = "Process_Stop::1";
-		int fd = 0, nwrite = 0, nread = 0, maxCount = 0, objCount = 0, i = 0, msg_read = 0;
+		int fd = 0, nwrite = 0, nread = 0, maxCount = 0, objCount = 0, i = 0;
 		tStarterObjState *changedObjects = NULL;
 
 		/* Calculate the no of process, packages and interfaces in the tata configuration */
@@ -671,6 +670,11 @@ void checkProcessState(void)
 			memset(changedObjects, 0, sizeof(tStarterObjState) * maxCount);
 			/* Read the starter interface, this call will block until any process state is changed */
 			nread = read(istarthandle, changedObjects, sizeof(tStarterObjState) * maxCount);
+			if (nread < 0)
+			{
+				OutputToConsole("Read failed, error :%d", nread, strerror(errno));
+				continue;
+			}
 			OutputToConsole("Objects read : %d", nread);
 			for (i = 0; i < nread; i++)
 			{
@@ -699,41 +703,6 @@ void checkProcessState(void)
 							return ;
 						}
 
-						close(fd);
-						fd = open(notify_pps_path, O_RDONLY | O_CREAT, 0666);
-						if (fd < 0)
-						{
-							OutputToConsole("Fail to open %s, error : %d\n", notify_pps_path, fd);
-							return ;
-						}
-						delay(50);
-						memset(read_message, 0, sizeof(read_message));
-						char *pData = NULL;
-						int process_state = 0;
-						pps_status_t status;
-						pps_attrib_t info;
-						msg_read = read(fd, read_message, sizeof(read_message));
-						printf("Objects read : %d\n", msg_read);
-						if (msg_read < 0)
-						{
-							OutputToConsole("Read failed on %s, error : %d, Reason : %s",
-									notify_pps_path, msg_read, strerror(errno));
-							return ;
-						}
-						OutputToConsole("Message received : %s", read_message);
-						read_message[msg_read] = '\0';
-						pData = read_message;
-						while ((status = ppsparse(&pData, NULL, NULL, &info, 0)) != PPS_END)
-						{
-							if (status == PPS_ATTRIBUTE)
-							{
-								if (!strcmp(info.attr_name, "Process_Stop"))
-								{
-									process_state = atoi(info.value);
-									printf("Process State : %d\n", process_state);
-								}
-							}
-						}
 						close(fd);
 						break;
 					}
